@@ -13,16 +13,46 @@ class AIGuard:
             self.log_callback(message)
         self.logger.info(message)
 
+    def _load_default_prompt(self) -> str:
+        """从 config/ai_prompt.yaml 加载默认提示词"""
+        import os
+        import yaml
+        
+        possible_paths = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'config', 'ai_prompt.yaml'),
+            'config/ai_prompt.yaml',
+            '../config/ai_prompt.yaml',
+        ]
+        
+        for path in possible_paths:
+            if os.path.exists(path):
+                try:
+                    with open(path, 'r', encoding='utf-8') as f:
+                        data = yaml.safe_load(f)
+                        if data and data.get('default_prompt'):
+                            return data['default_prompt'].strip()
+                except Exception as e:
+                    self.logger.warning(f"加载AI提示词配置失败: {e}")
+        
+        # 兜底：通用机加工提示词
+        return (
+            "你是一个专业的招投标项目筛选专家。请判断该项目是否适合CNC数控机加工企业投标。"
+            "符合：数控加工、CNC加工、机加工零部件、精密零件、模具制造、非标零件定制。"
+            "排除：纯设备采购、软件开发、培训咨询、建筑工程、原材料采购。"
+            '返回JSON: {"relevant": true/false, "reason": "50字以内的判断理由"}'
+        )
+    
     def update_config(self, config):
         if not config:
             self.enabled = False
             return
             
         self.api_key = config.get('api_key', '')
-        self.base_url = config.get('base_url', 'https://cc.honoursoft.cn/').rstrip('/')
-        self.model = config.get('model', 'claude-sonnet-4-5-20250929-thinking')
+        self.base_url = config.get('base_url', 'https://api.deepseek.com/chat/completions').rstrip('/')
+        self.model = config.get('model', 'deepseek-chat')
         self.enabled = config.get('enable', False)
-        self.custom_prompt = config.get('prompt', '')
+        # 优先使用用户在配置中指定的prompt，否则从yaml文件加载
+        self.custom_prompt = config.get('prompt', '') or self._load_default_prompt()
 
     def check_relevance(self, title, content="", raise_on_error=False):
         """
@@ -37,28 +67,8 @@ class AIGuard:
 
         self.log(f"🤖 [AI分析] 开始分析: {title[:40]}...")
 
-        system_prompt = (
-            "你是一个专业的招投标项目筛选专家。我们公司是做【光伏巡检无人机】和【风电巡检无人机】的，"
-            "产品主要用于光伏发电板巡检（含红外热斑检测）和风力发电设施巡检（含叶片检测）。\n\n"
-            "请判断该项目是否适合我们公司投标。\n\n"
-            "【符合条件】：\n"
-            "- 光伏电站/光伏发电项目的无人机巡检服务采购\n"
-            "- 风电场/风力发电项目的无人机巡检服务采购\n"
-            "- 光伏组件红外检测、热斑检测服务\n"
-            "- 风机叶片无人机检测服务\n"
-            "- 新能源电站无人机运维服务\n\n"
-            "【排除条件】：\n"
-            "- 单纯采购无人机设备（非服务）\n"
-            "- 测绘、航拍、农业植保、消防等其他领域无人机\n"
-            "- 光伏/风电的工程建设、设备安装（无巡检需求）\n"
-            "- 清洗、清洁、运输等非巡检服务\n"
-            "- 监理、咨询、设计类服务\n\n"
-            "返回JSON: {\"relevant\": true/false, \"reason\": \"50字以内的判断理由\"}"
-        )
+        system_prompt = self.custom_prompt
         
-        if self.custom_prompt:
-            system_prompt = self.custom_prompt
-
         user_content = f"项目标题: {title}\n项目内容: {content[:800]}"
 
         # 判断是否使用 Claude 原生格式（基于模型名称和URL）

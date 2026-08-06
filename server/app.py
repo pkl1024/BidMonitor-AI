@@ -92,9 +92,9 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
 def load_config() -> Dict[str, Any]:
     """加载配置"""
     default_config = {
-        'keywords': '光伏,风电,风力发电,光伏巡检,风电巡检,无人机巡检,光伏无人机,风机巡检,风力发电巡检,光伏电站无人机,风电场无人机,光伏运维,风机运维,叶片巡检,红外巡检,新能源巡检',
-        'exclude': '大疆',
-        'must_contain': '无人机',
+        'keywords': '数控加工,CNC加工,机加工,机械加工,零部件加工,金属加工,精密加工,模具制造,非标零件,数控车床,数控铣床,加工中心,工装夹具,机械零件',
+        'exclude': '培训,咨询,软件,信息化,监理,设计,物流,仓储,原材料,钢材,铝材',
+        'must_contain': '',
         'interval': 10,
         'enabled_sites': [
             'chinabidding', 'dlzb', 'chinabiddingcc', 'gdtzb', 'cpeinet', 'espic',
@@ -133,7 +133,8 @@ def load_config() -> Dict[str, Any]:
             'enable': False,
             'base_url': 'https://api.deepseek.com/chat/completions',
             'api_key': '',  # 请填入您的API Key
-            'model': 'deepseek-chat'
+            'model': 'deepseek-chat',
+            'prompt': ''  # 留空则自动从 config/ai_prompt.yaml 加载
         },
         'contacts': [],  # 开源版本默认空
         'use_selenium': True  # Selenium浏览器模式开关
