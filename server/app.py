@@ -8,6 +8,7 @@ import json
 import asyncio
 import logging
 import threading
+import copy
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from contextlib import asynccontextmanager
@@ -74,8 +75,10 @@ CONFIG_FILE = os.path.join(BASE_DIR, 'server', 'server_config.json')
 
 # HTTP Basic 认证配置
 security = HTTPBasic()
-AUTH_USERNAME = "CDKJ"
-AUTH_PASSWORD = "cdkj"
+# 安全：凭据从环境变量读取（部署时设置 BIDMONITOR_USERNAME/BIDMONITOR_PASSWORD），
+# 未设置时回退默认值，保证服务可启动
+AUTH_USERNAME = os.environ.get("BIDMONITOR_USERNAME", "CDKJ")
+AUTH_PASSWORD = os.environ.get("BIDMONITOR_PASSWORD", "cdkj")
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     """验证用户名和密码"""
@@ -147,6 +150,12 @@ def load_config() -> Dict[str, Any]:
                 default_config.update(saved_config)
         except Exception as e:
             logger.error(f"加载配置失败: {e}")
+    
+    # 安全：AI API Key 优先从环境变量读取（BIDMONITOR_AI_API_KEY），
+    # 避免密钥以明文形式出现在 /api/config 响应中
+    env_api_key = os.environ.get("BIDMONITOR_AI_API_KEY", "").strip()
+    if env_api_key:
+        default_config['ai_config']['api_key'] = env_api_key
     
     return default_config
 
@@ -429,9 +438,14 @@ app = FastAPI(
 )
 
 # 添加CORS中间件，允许前端跨域访问
+# 安全：白名单从环境变量 BIDMONITOR_CORS_ORIGINS 读取（逗号分隔），默认仅本机；
+# 部署时按实际前端域名配置，禁止再使用 *
+CORS_ORIGINS = [o.strip() for o in os.environ.get(
+    "BIDMONITOR_CORS_ORIGINS", "http://localhost:8080,http://127.0.0.1:8080"
+).split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 允许所有来源
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],  # 允许所有HTTP方法
     allow_headers=["*"],  # 允许所有请求头
@@ -583,9 +597,22 @@ async def run_once(background_tasks: BackgroundTasks):
 
 @app.get("/api/config")
 async def get_config():
-    """获取配置"""
-    config = app_state.config.copy()
-    # 不再隐藏敏感信息，让前端能正确显示已保存的值
+    """获取配置（安全：敏感字段脱敏为 ***，前端提交 *** 时服务端保留旧值）"""
+    config = copy.deepcopy(app_state.config)
+    # AI API Key 脱敏
+    if isinstance(config.get('ai_config'), dict) and config['ai_config'].get('api_key'):
+        config['ai_config']['api_key'] = '***'
+    # 短信/语音云密钥脱敏
+    for key in ['sms_config', 'voice_config']:
+        if isinstance(config.get(key), dict) and config[key].get('access_key_secret'):
+            config[key]['access_key_secret'] = '***'
+    # 微信 token 脱敏
+    if isinstance(config.get('wechat_config'), dict) and config['wechat_config'].get('token'):
+        config['wechat_config']['token'] = '***'
+    # 邮箱密码脱敏
+    for email_cfg in config.get('email_configs', []):
+        if email_cfg.get('password'):
+            email_cfg['password'] = '***'
     return config
 
 @app.post("/api/config")
@@ -734,7 +761,7 @@ async def update_full_config(config: Dict[str, Any]):
     
     if 'email_configs' in config and config['email_configs']:
         for i, email_cfg in enumerate(config['email_configs']):
-            if email_cfg.get('password') in ['', None]:
+            if email_cfg.get('password') in ['', None, '***']:
                 old_configs = app_state.config.get('email_configs', [])
                 if i < len(old_configs):
                     email_cfg['password'] = old_configs[i].get('password', '')
