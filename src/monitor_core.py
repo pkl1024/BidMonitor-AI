@@ -306,11 +306,23 @@ class MonitorCore:
         all_matched_bids = []
         failed_sites = []
         total_crawlers = len(self.crawlers)
-        
+
+        # 跨源去重：同一项目可能在多个平台发布（如 ccgp 和 ggzy 都发同一采购公告），
+        # 标题归一化后比较，避免重复入库
+        seen_titles = set()
+
+        def _norm_title(t: str) -> str:
+            """标题归一化：去空白/标点/括号内容，用于跨源去重"""
+            import re as _re
+            t = _re.sub(r'[（(].*?[)）]', '', t)          # 去括号内容
+            t = _re.sub(r'[【\[].*?[】\]]', '', t)         # 去【】[]
+            t = _re.sub(r'[\s\W_]+', '', t)               # 去空白和标点
+            return t.lower()
+
         # AI 过滤统计
         ai_stats = {
             'keyword_matched': [],  # 关键词匹配的项目 (title, url)
-            'ai_approved': [],      # AI 判定相关的项目 (title, url, reason)
+            'ai_approved': [],      # AI 判定相关的项目 (title, url, reason, summary)
             'ai_rejected': [],      # AI 判定不相关的项目 (title, url, reason)
         }
         
@@ -349,10 +361,17 @@ class MonitorCore:
                     if stop_event and stop_event.is_set():
                         self.log("检测到停止信号，中断匹配")
                         break
-                    
+
                     result = self.matcher.match_any(bid.title, bid.content)
-                    
+
                     if result.matched:
+                        # 跨源去重：同一批次内标题归一化相同的视为重复
+                        norm = _norm_title(bid.title)
+                        if norm and norm in seen_titles:
+                            self.log(f"[去重] 跨源重复跳过: {bid.title[:40]}...")
+                            continue
+                        seen_titles.add(norm)
+
                         # 记录关键词匹配的项目
                         ai_stats['keyword_matched'].append({
                             'title': bid.title,
@@ -361,7 +380,7 @@ class MonitorCore:
                         
                         # AI 二次过滤 (如果启用)
                         if self.ai_guard:
-                            ai_relevant, ai_reason = self.ai_guard.check_relevance(bid.title, bid.content or "")
+                            ai_relevant, ai_reason, ai_summary = self.ai_guard.check_relevance(bid.title, bid.content or "")
                             if not ai_relevant:
                                 ai_stats['ai_rejected'].append({
                                     'title': bid.title,
@@ -374,7 +393,8 @@ class MonitorCore:
                                 ai_stats['ai_approved'].append({
                                     'title': bid.title,
                                     'url': bid.url,
-                                    'reason': ai_reason
+                                    'reason': ai_reason,
+                                    'summary': ai_summary
                                 })
                         
                         if not self.storage.exists(bid):

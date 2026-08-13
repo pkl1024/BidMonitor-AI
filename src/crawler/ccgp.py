@@ -123,6 +123,12 @@ class CCGPCrawler(BaseCrawler):
                 if url and not url.startswith('http'):
                     url = urljoin(self.base_url, url)
 
+                # 正文摘要：li 里的 <p>（含项目编号/名称/结果摘要），作为 AI 判断内容
+                content = ""
+                p_elem = item.select_one('p')
+                if p_elem:
+                    content = p_elem.get_text(" ", strip=True)
+
                 # 日期：li 尾部文本里的 YYYY.MM.DD
                 publish_date = ""
                 li_text = item.get_text(" ", strip=True)
@@ -134,6 +140,7 @@ class CCGPCrawler(BaseCrawler):
                     title=title,
                     url=url,
                     publish_date=publish_date,
+                    content=content,
                     source="中国政府采购网"
                 ))
             except Exception as e:

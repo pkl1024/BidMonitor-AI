@@ -56,20 +56,23 @@ class AIGuard:
 
     def check_relevance(self, title, content="", raise_on_error=False):
         """
-        检查项目是否与无人机巡检相关
-        返回: (is_relevant: bool, reason: str)
+        检查项目是否与CNC数控机加工相关，并生成项目摘要
+        返回: (is_relevant: bool, reason: str, summary: str)
         """
         if not self.enabled:
-            return True, "AI未启用"
+            return True, "AI未启用", ""
 
         if not self.api_key:
-            return True, "AI未配置Key"
+            return True, "AI未配置Key", ""
 
         self.log(f"🤖 [AI分析] 开始分析: {title[:40]}...")
 
         system_prompt = self.custom_prompt
-        
-        user_content = f"项目标题: {title}\n项目内容: {content[:800]}"
+
+        # 截断策略：标题完整保留，正文截前1200字符（政府公告正文一般较长，
+        # 项目概况/采购需求通常在前部；超过部分截断避免token浪费）
+        content_truncated = (content or "")[:1200]
+        user_content = f"项目标题: {title}\n项目内容: {content_truncated}"
 
         # 判断是否使用 Claude 原生格式（基于模型名称和URL）
         is_claude_native = (
@@ -151,19 +154,20 @@ class AIGuard:
                         analysis = json.loads(json_str)
                         is_relevant = analysis.get('relevant', False)
                         reason = analysis.get('reason', 'AI未提供理由')
-                        
+                        summary = analysis.get('summary', '') or reason
+
                         if is_relevant:
                             self.log(f"✅ [AI判定] 相关 - {reason}")
                         else:
                             self.log(f"🚫 [AI判定] 不相关 - {reason}")
-                            
-                        return is_relevant, reason
-                        
+
+                        return is_relevant, reason, summary
+
                     except json.JSONDecodeError:
                         # 如果无法解析JSON，尝试从文本判断
                         self.log(f"⚠️ [AI分析] 返回非标准JSON，尝试文本分析")
                         is_relevant = "true" in ai_content.lower() or "相关" in ai_content or "是" in ai_content[:20]
-                        return is_relevant, ai_content[:80]
+                        return is_relevant, ai_content[:80], ai_content[:80]
                         
                 except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
                     # 网络连接错误或超时，可以重试
@@ -174,15 +178,15 @@ class AIGuard:
                         self.log(f"❌ [AI分析] 网络异常，已重试{max_retries}次仍失败")
                         if raise_on_error:
                             raise
-                        return True, f"AI网络异常（已重试{max_retries}次）"
+                        return True, f"AI网络异常（已重试{max_retries}次）", ""
 
         except ImportError:
             self.log(f"❌ [AI分析] 缺少requests库")
-            return True, "请安装 requests 库: pip install requests"
+            return True, "请安装 requests 库: pip install requests", ""
         except Exception as e:
             error_msg = str(e)
             self.log(f"❌ [AI分析] 请求失败: {error_msg[:100]}")
             self.logger.error(f"AI请求失败: {error_msg}")
             if raise_on_error:
                 raise
-            return True, f"AI请求异常: {error_msg[:50]}"
+            return True, f"AI请求异常: {error_msg[:50]}", ""

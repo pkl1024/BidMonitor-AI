@@ -3089,7 +3089,7 @@ class MonitorGUI:
                     'model': model,
                     'enable': True
                 })
-                is_rel, reason = guard.check_relevance(
+                is_rel, reason, _summary = guard.check_relevance(
                     "某省风力发电场无人机智能巡检服务采购项目", 
                     "本项目采购2025年度风电场无人机精细化巡检服务，包括可见光及红外检测...",
                     raise_on_error=True  # 测试时需要捕获真实错误

@@ -26,4 +26,4 @@ default_prompt: |
   - 物流运输、仓储服务
   - 原材料采购（钢材、铝材等原材料，非加工件）
 
-  返回JSON: {"relevant": true/false, "reason": "50字以内的判断理由"}
+  返回JSON: {"relevant": true/false, "reason": "50字以内的判断理由", "summary": "80字以内的项目摘要（采购方、采购内容、预算/数量等关键信息，适合直接展示给机加工企业老板看）"}
