@@ -50,7 +50,18 @@ except ImportError:
 def get_all_crawlers():
     """获取所有爬虫类"""
     return {
+        'ccgp': CCGPCrawler,
         'chinabidding': ChinaBiddingCrawler,
+        'ebnew': EbnewCrawler,
+        'plap': PLAPCrawler,
+        'ggzy': GGZYCrawler,
+        'bidcenter': BidcenterCrawler,
+        'qianlima': QianlimaCrawler,
+        'chinatender': ChinaTenderCrawler,
+        'solarbe': SolarbeCrawler,
+        'pvyuan': PvyuanCrawler,
+        'dlnyzb': DlnyzbCrawler,
+        'youuav': YouuavCrawler,
     }
 
 # 默认内置网站配置 (用于通用爬虫)

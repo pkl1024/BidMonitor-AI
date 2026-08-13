@@ -97,7 +97,7 @@ def load_config() -> Dict[str, Any]:
         'must_contain': '',
         'interval': 10,
         'enabled_sites': [
-            'chinabidding', 'dlzb', 'chinabiddingcc', 'gdtzb', 'cpeinet', 'espic',
+            'ccgp', 'ggzy', 'chinabidding', 'dlzb', 'chinabiddingcc', 'gdtzb', 'cpeinet', 'espic',
             'chng', 'powerchina', 'powerchina_bid', 'powerchina_ec', 'powerchina_scm',
             'powerchina_idx', 'powerchina_nw', 'ceec', 'chdtp', 'chec_gys', 'chinazbcg',
             'cdt', 'ebidding', 'neep', 'ceic', 'sgcc', 'cecep', 'gdg', 'crpower', 'crc',
@@ -130,10 +130,10 @@ def load_config() -> Dict[str, Any]:
             'token': ''
         },
         'ai_config': {
-            'enable': False,
-            'base_url': 'https://api.deepseek.com/chat/completions',
-            'api_key': '',  # 请填入您的API Key
-            'model': 'deepseek-chat',
+            'enable': True,
+            'base_url': 'https://maas-coding-api.cn-huabei-1.xf-yun.com/v2/chat/completions',
+            'api_key': '393ae27833b7e08beaaed6e53f9d756f:MTlmYmRkMjhjMzlkYjQ0ZTc0MzA3NTdj',
+            'model': 'xopdeepseekv4pro',
             'prompt': ''  # 留空则自动从 config/ai_prompt.yaml 加载
         },
         'contacts': [],  # 开源版本默认空
@@ -905,6 +905,6 @@ async def test_ai():
 # 主入口
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8081)
 
 
